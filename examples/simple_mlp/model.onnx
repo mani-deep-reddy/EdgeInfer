@@ -1,0 +1,28 @@
+# Placeholder for model.onnx
+# Generate with:
+#   pip install onnx numpy
+#   python3 -c "
+#   import onnx
+#   from onnx import helper, TensorProto, numpy_helper
+#   import numpy as np
+#   
+#   W1 = numpy_helper.from_array(np.random.randn(8,4).astype(np.float32), 'W1')
+#   b1 = numpy_helper.from_array(np.zeros(8, dtype=np.float32), 'b1')
+#   W2 = numpy_helper.from_array(np.random.randn(4,8).astype(np.float32), 'W2')
+#   b2 = numpy_helper.from_array(np.zeros(4, dtype=np.float32), 'b2')
+#   
+#   X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [1, 4])
+#   Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [1, 4])
+#   
+#   nodes = [
+#       helper.make_node('MatMul', ['X', 'W1'], ['h1']),
+#       helper.make_node('Add', ['h1', 'b1'], ['h2']),
+#       helper.make_node('Relu', ['h2'], ['h3']),
+#       helper.make_node('MatMul', ['h3', 'W2'], ['h4']),
+#       helper.make_node('Add', ['h4', 'b2'], ['Y']),
+#   ]
+#   
+#   graph = helper.make_graph(nodes, 'simple_mlp', [X], [Y], [W1, b1, W2, b2])
+#   model = helper.make_model(graph, opset_imports=[helper.make_opsetid('', 13)])
+#   onnx.save(model, 'model.onnx')
+#   "

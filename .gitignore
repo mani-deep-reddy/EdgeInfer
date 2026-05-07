@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+
+# Tooling directories
+.opencode/
+openspec/
+
+# Python
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

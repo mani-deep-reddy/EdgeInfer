@@ -1,0 +1,7 @@
+# Expected output for simple_mlp example
+# Format: one float per line
+# Generated with reference implementation
+0.000000
+0.000000
+0.000000
+0.000000
