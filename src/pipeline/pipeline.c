@@ -9,33 +9,24 @@ extern edgeinfer_status_t stage_postprocess(const tensor_t *raw_output, tensor_t
 static memory_pool_t g_pool;
 
 edgeinfer_status_t pipeline_init(void) {
+    /* TODO: read model metadata, init memory pool with computed size, init buffer layout */
     logger_init();
-    LOG_INFO("pipeline", "Initializing pipeline");
     return memory_pool_init(&g_pool);
 }
 
 edgeinfer_status_t pipeline_run(const tensor_t *input, tensor_t *output) {
+    /* TODO: preprocess, inference, postprocess stages, reset pool after */
     tensor_t prepared;
     tensor_t inference_out;
 
-    LOG_INFO("pipeline", "Starting pipeline run");
+    stage_preprocess(input, &prepared);
 
-    /* Stage 1: Preprocess */
-    edgeinfer_status_t status = stage_preprocess(input, &prepared);
-    if (status != EDGEINFER_OK) return status;
-
-    /* Stage 2: Inference */
-    inference_out.data  = prepared.data; /* Reuse buffer in simple case */
+    inference_out.data  = prepared.data;
     inference_out.shape = prepared.shape;
-    status = stage_inference(&prepared, &inference_out);
-    if (status != EDGEINFER_OK) return status;
+    stage_inference(&prepared, &inference_out);
 
-    /* Stage 3: Postprocess */
-    status = stage_postprocess(&inference_out, output);
+    stage_postprocess(&inference_out, output);
 
-    /* Reset memory pool for next run */
     memory_pool_reset(&g_pool);
-
-    LOG_INFO("pipeline", "Pipeline run complete");
-    return status;
+    return EDGEINFER_OK;
 }

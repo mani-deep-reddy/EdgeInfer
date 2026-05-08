@@ -1,21 +1,21 @@
 #include "memory_pool.h"
-#include "logger.h"
 #include <string.h>
 
-static uint8_t static_pool[MAX_INPUT_BUFFER_SIZE + MAX_OUTPUT_BUFFER_SIZE + MAX_WORKSPACE_SIZE];
+/* TODO: implement dynamic pool sizing from TARGET_RAM_SIZE - POOL_HEADROOM */
+static uint8_t static_pool[64 * 1024]; /* temporary minimal pool */
 
 edgeinfer_status_t memory_pool_init(memory_pool_t *pool) {
+    /* TODO: size pool from model metadata via TARGET_RAM_SIZE - POOL_HEADROOM */
     pool->base = static_pool;
     pool->total_size = sizeof(static_pool);
     pool->used = 0;
     memset(pool->base, 0, pool->total_size);
-    LOG_INFO("memory", "Pool initialized: %u bytes", pool->total_size);
     return EDGEINFER_OK;
 }
 
 void *memory_pool_alloc(memory_pool_t *pool, uint32_t size) {
+    /* TODO: bump allocator with overflow check */
     if (pool->used + size > pool->total_size) {
-        LOG_ERROR("memory", "Pool overflow: need %u, have %u", size, pool->total_size - pool->used);
         return NULL;
     }
     void *ptr = pool->base + pool->used;
