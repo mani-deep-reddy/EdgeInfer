@@ -1,15 +1,20 @@
 #include "memory_pool.h"
+#include "model_meta.h"
+#include "runtime_config.h"
+#include "logger.h"
 #include <string.h>
 
-/* TODO: implement dynamic pool sizing from TARGET_RAM_SIZE - POOL_HEADROOM */
-static uint8_t static_pool[64 * 1024]; /* temporary minimal pool */
+static uint8_t static_pool[MODEL_MAX_ACTIVATIONS_SIZE + MODEL_MAX_INTERMEDIATE_SIZE] __attribute__((aligned(4)));
 
 edgeinfer_status_t memory_pool_init(memory_pool_t *pool) {
-    /* TODO: size pool from model metadata via TARGET_RAM_SIZE - POOL_HEADROOM */
     pool->base = static_pool;
     pool->total_size = sizeof(static_pool);
     pool->used = 0;
     memset(pool->base, 0, pool->total_size);
+    if (sizeof(static_pool) > TARGET_RAM_SIZE - POOL_HEADROOM) {
+        LOG_WARN("mem", "Pool size (%u) exceeds available RAM (%u)",
+                 (unsigned)sizeof(static_pool), (unsigned)(TARGET_RAM_SIZE - POOL_HEADROOM));
+    }
     return EDGEINFER_OK;
 }
 
