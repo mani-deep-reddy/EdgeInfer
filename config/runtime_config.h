@@ -9,4 +9,7 @@
 #define ENABLE_LOGGING      1
 #define ENABLE_PROFILING    0
 
+/* Log level (value from LOG_LEVEL_* constants in logger.h) */
+#define LOG_LEVEL           LOG_LEVEL_INFO   /* messages below this are compiled out */
+
 #endif /* RUNTIME_CONFIG_H */

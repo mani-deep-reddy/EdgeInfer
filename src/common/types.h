@@ -6,6 +6,11 @@
 
 #define TENSOR_MAX_DIMS  4
 
+#define ARRAY_SIZE(x)       (sizeof(x) / sizeof((x)[0]))   /* element count of static array */
+#define MIN(a, b)           (((a) < (b)) ? (a) : (b))      /* safe min macro */
+#define MAX(a, b)           (((a) > (b)) ? (a) : (b))      /* safe max macro */
+#define ROUND_UP_ALIGN(x, a) (((x) + (a) - 1) & ~((a) - 1)) /* round up to alignment */
+
 typedef struct {
     uint32_t dims[TENSOR_MAX_DIMS];
     uint8_t  ndim;
