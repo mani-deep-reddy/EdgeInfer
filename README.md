@@ -1,33 +1,40 @@
 # EdgeInfer
 
-**Embedded inference framework for ARM Cortex-M microcontrollers.**
+Embedded inference framework for ARM Cortex-M microcontrollers — a from-scratch C framework that compiles neural network models into deterministic, statically-allocated inference pipelines. No OS, no heap, no stdio. Runs bare-metal on QEMU mps2-an385 (Cortex-M3).
 
-EdgeInfer is a from-scratch C framework that compiles neural network models into
-deterministic, statically-allocated inference pipelines for ARM Cortex-M3 targets.
-No OS, no heap, no stdio — runs bare-metal on QEMU mps2-an385.
+## Key Features
 
-## Highlights
+| Feature | Description |
+|---------|-------------|
+| **Static Memory Pool** | Zero `malloc`/`free` — pool sized at compile time from model metadata. O(1) bump allocator with overflow detection. |
+| **Pipeline Architecture** | Preprocess → inference → postprocess stages with error propagation and automatic buffer management. |
+| **User Extension Hooks** | Custom pre/post processing injected via function pointers. No framework modification needed. |
+| **Offline Model Compilation** | ONNX models converted to C headers via `tools/onnx_to_c.py`. Zero runtime dependencies. |
+| **Custom UART Engine** | printf-style formatting (`%s`, `%d`, `%u`, floats) with no libc dependency. Bare-metal serial output. |
+| **QEMU Emulation** | Run and debug on emulated mps2-an385 (Cortex-M3). GDB server on port 1234. |
+| **Golden-Output Verification** | Automated CI-style check: build → QEMU run → float extraction → diff against reference. |
 
-- **Static memory pool** — zero `malloc`/`free`. Pool sized at compile time from model metadata. O(1) bump allocator with overflow detection.
-- **Pipeline architecture** — preprocess → inference → postprocess stages with error propagation and automatic buffer management.
-- **User extension hooks** — custom pre/post processing injected via function pointers. No framework modification needed.
-- **Offline model compilation** — ONNX models converted to C headers via `tools/onnx_to_c.py`. Zero runtime dependencies.
-- **Custom UART engine** — printf-style formatting (`%s`, `%d`, `%u`, floats) with no libc dependency. Bare-metal serial output.
-- **QEMU support** — runs on emulated mps2-an385 (Cortex-M3). GDB debug server available on port 1234.
+## Prerequisites
+
+- `arm-none-eabi-gcc` (ARM cross-compiler toolchain)
+- `qemu-system-arm` (for emulation)
+- Python 3 with `onnx` and `numpy` (for model conversion)
 
 ## Quick Start
 
 ```bash
-# Prerequisites
-sudo apt install gcc-arm-none-eabi qemu-system-arm
-pip install onnx numpy
-
 # Build and run
 make -f scripts/Makefile
 ./qemu/run.sh
+
+# Or one step
+./scripts/demo.sh
+
+# Automated verification
+bash scripts/verify_qemu.sh
 ```
 
-Expected output (inference on a 2-layer MLP: 4→8→4 with ReLU):
+Expected output (2-layer MLP: 4 → 8 → 4 with ReLU):
 
 ```
 11.946224
@@ -35,6 +42,19 @@ Expected output (inference on a 2-layer MLP: 4→8→4 with ReLU):
 -3.791145
 1.372610
 ```
+
+## What Runs by Default
+
+The default simulation executes inference on a simple MLP, validating the full pipeline:
+
+1. `pipeline_init()` — initializes logger (UART), static memory pool, and buffer layout from generated model metadata
+2. `user_register_hooks()` — registers user preprocess and postprocess hooks
+3. `pipeline_run()` — orchestrates all three stages:
+   - `stage_preprocess()` — calls user preprocess hook (passthrough if unregistered)
+   - `stage_inference()` — default engine iterates Dense/ReLU layers from model topology
+   - `stage_postprocess()` — calls user postprocess hook (passthrough if unregistered)
+4. Output tensor printed via UART float formatting
+5. Pool reset between runs — deterministic, reusable
 
 ## Project Structure
 
@@ -48,43 +68,43 @@ src/                     Core framework source
 ├── model/               Generated model headers (weights, topology, macros)
 └── main.c               Entry point — init, register hooks, run pipeline
 
-config/                  Compile-time configuration (TARGET_RAM_SIZE, logging)
+config/                  Compile-time configuration (TARGET_RAM_SIZE, logging levels)
 platform/arm/            ARM-specific: startup.s, linker.ld, UART driver
 user_extensions/         User-provided preprocessing, postprocessing, config
 tools/                   onnx_to_c.py — ONNX → C header converter
 qemu/                    QEMU run/debug scripts
 scripts/                 Build and verification entry points
 examples/simple_mlp/     Reference MLP model with golden output
-docs/                    Architecture, memory model, integration guide
+docs/                    Architecture, memory model, and integration documentation
 ```
 
 ## Architecture
 
 ```
-                      ┌──────────────┐
-                      │  model.onnx  │
-                      └──────┬───────┘
-                             │ python3 tools/onnx_to_c.py
-                             ▼
-                      ┌──────────────┐     ┌──────────────────┐
-                      │  model.h     │     │  model_meta.h    │
-                      │  (weights,   │     │  (layer topology,│
-                      │   biases,    │     │   sizing macros) │
-                      │   metadata)  │     └──────────────────┘
-                      └──────────────┘
-                             │
-                             ▼  arm-none-eabi-gcc
-                      ┌──────────────┐
-                      │  build/      │
-                      │  app.elf     │
-                      └──────┬───────┘
-                             │ qemu-system-arm (or real hardware)
-                             ▼
-                      ┌──────────────┐
-                      │  Cortex-M3   │
-                      │  Pipeline    │
-                      │  pre→inf→post│
-                      └──────────────┘
+   ┌──────────────┐
+   │  model.onnx  │
+   └──────┬───────┘
+          │ python3 tools/onnx_to_c.py
+          ▼
+   ┌──────────────┐     ┌──────────────────┐
+   │  model.h     │     │  model_meta.h    │
+   │  (weights,   │     │  (layer topology,│
+   │   biases,    │     │   sizing macros) │
+   │   metadata)  │     └──────────────────┘
+   └──────────────┘
+          │
+          ▼  arm-none-eabi-gcc
+   ┌──────────────┐
+   │  build/      │
+   │  app.elf     │
+   └──────┬───────┘
+          │ qemu-system-arm
+          ▼
+   ┌──────────────────┐
+   │  Cortex-M3       │
+   │  mps2-an385      │
+   │  pre→inf→post    │
+   └──────────────────┘
 ```
 
 ## Adding a New Model
@@ -93,8 +113,7 @@ docs/                    Architecture, memory model, integration guide
 # 1. Convert ONNX to C headers
 python3 tools/onnx_to_c.py your_model.onnx
 
-# 2. Update user config dimensions
-#    (edit user_extensions/config/user_config.h)
+# 2. Update user config dimensions in user_extensions/config/user_config.h
 
 # 3. Rebuild
 make -f scripts/Makefile
@@ -112,7 +131,7 @@ static edgeinfer_status_t my_preprocess(
 }
 ```
 
-Register hooks in `user_register_hooks()`. Fall through to passthrough if unregistered.
+Both hooks registered from `user_register_hooks()` in `user_preprocess.c`. Hooks fall through to passthrough if unregistered.
 
 ## Debugging
 
@@ -127,23 +146,11 @@ arm-none-eabi-gdb build/app.elf
 (gdb) continue
 ```
 
-## Verification
+## Documentation
 
-```bash
-bash scripts/verify_qemu.sh
-```
-
-Automated CI-style check: clean build → QEMU run → float output extraction → diff against golden reference.
-
-## Supported Layers
-
-| Layer    | Status      |
-|----------|-------------|
-| Dense    | Implemented |
-| ReLU     | Implemented |
-| Conv2D   | Planned     |
-| MaxPool  | Planned     |
-| Softmax  | Planned     |
+- [Architecture](docs/architecture.md) — Module dependencies, type system, control flow, build system
+- [Memory Model](docs/memory_model.md) — Static pool design, buffer layout, memory safety
+- [Integration Guide](docs/integration_guide.md) — How to add models, write hooks, and tune for your target
 
 ## License
 
