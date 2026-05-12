@@ -33,6 +33,7 @@ SECTIONS
         *(.data*)
         _edata = .;
     } > RAM AT > FLASH
+    _sload = LOADADDR(.data);   /* FLASH load address for .data copy */
 
     .bss :
     {

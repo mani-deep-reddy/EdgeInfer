@@ -1,6 +1,7 @@
 #include "pipeline.h"
 #include "types.h"
 #include "logger.h"
+#include "uart.h"
 
 extern void user_register_hooks(void);
 
@@ -28,6 +29,11 @@ int main(void) {
     status = pipeline_run(&input, &output);
     if (status != EDGEINFER_OK) {
         return 1;
+    }
+
+    for (int i = 0; i < 4; i++) {                /* print each output value */
+        uart_print_float(output.data[i]);          /* format as "0.000000" */
+        uart_puts("\n");
     }
 
     return 0;

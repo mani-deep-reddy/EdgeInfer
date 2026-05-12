@@ -16,5 +16,4 @@ qemu-system-arm \
     -M mps2-an385 \
     -kernel "$BINARY" \
     -nographic \
-    -serial stdio \
     2>&1

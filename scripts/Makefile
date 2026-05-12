@@ -23,7 +23,8 @@ C_SRCS = $(wildcard $(SRCDIR)/common/*.c) \
          $(wildcard $(SRCDIR)/hooks/*.c) \
          $(SRCDIR)/main.c \
          $(wildcard $(USERDIR)/preprocess/*.c) \
-         $(wildcard $(USERDIR)/postprocess/*.c)
+         $(wildcard $(USERDIR)/postprocess/*.c) \
+         $(wildcard $(PLATFORM)/*.c)
 
 ASM_SRCS = $(PLATFORM)/startup.s
 
@@ -83,6 +84,9 @@ $(BUILDDIR)/%.o: $(USERDIR)/preprocess/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BUILDDIR)/%.o: $(USERDIR)/postprocess/%.c | $(BUILDDIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILDDIR)/%.o: $(PLATFORM)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BUILDDIR)/%.o: $(PLATFORM)/%.s | $(BUILDDIR)

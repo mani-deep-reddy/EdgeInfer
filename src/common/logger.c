@@ -1,5 +1,5 @@
 #include "logger.h"
-#include <stdio.h>
+#include "uart.h"
 #include <stdarg.h>
 
 static const char *level_prefix(log_level_t level) {   /* map level to short prefix string */
@@ -12,24 +12,20 @@ static const char *level_prefix(log_level_t level) {   /* map level to short pre
     }
 }
 
-void logger_init(void) {   /* init logging backend */
+void logger_init(void) {   /* init logging backend (UART) */
 #if ENABLE_LOGGING
-    /* TODO: platform-specific init (e.g., UART) */
+    uart_init();
 #endif
 }
 
-void logger_log(log_level_t level, const char *module, const char *fmt, ...) {   /* output formatted log message */
-    va_list args;       /* variadic argument list */
+void logger_log(log_level_t level, const char *module, const char *fmt, ...) {   /* output formatted log message via UART */
+    va_list args;           /* variadic argument list */
     va_start(args, fmt);
-#ifdef SEMIHOSTING
-    /* ARM semihosting output via SVC 0x123456 */
-    printf("%s[%s] ", level_prefix(level), module);
-    vprintf(fmt, args);
-    printf("\n");
-#else
-    printf("%s[%s] ", level_prefix(level), module);    /* host output via stdio */
-    vprintf(fmt, args);
-    printf("\n");
-#endif
+    uart_puts(level_prefix(level));
+    uart_puts("[");
+    uart_puts(module);
+    uart_puts("] ");
+    uart_vprintf(fmt, args);
     va_end(args);
+    uart_puts("\n");
 }
