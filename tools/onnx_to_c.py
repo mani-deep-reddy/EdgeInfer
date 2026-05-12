@@ -284,7 +284,7 @@ def generate(onnx_path, output_dir):
     }
 
 
-def write_model_meta_h(output_dir, info):
+def write_model_meta_h(output_dir, info):   # generate model_meta.h: types, sizing macros, layer topology
     path = os.path.join(output_dir, "model_meta.h")
     with open(path, "w") as f:
         f.write("/* GENERATED FILE — Do not edit manually. */\n")
@@ -333,16 +333,14 @@ def write_model_meta_h(output_dir, info):
             f.write(f"    {{.type = {layer['type']}, .input_shape = {in_shape}, .output_shape = {out_shape}, .weight_offset = {layer['weight_offset']}U, .bias_offset = {layer['bias_offset']}U}},\n")
         f.write("};\n\n")
 
-        f.write("/* Extern declarations */\n")
-        f.write("extern const model_meta_t g_model_meta;\n")
-        f.write("extern const memory_requirements_t g_memory_requirements;\n\n")
+
 
         f.write("#endif /* MODEL_META_H */\n")
 
     print(f"Generated: {path}")
 
 
-def write_model_h(output_dir, info):
+def write_model_h(output_dir, info):   # generate model.h: weight/bias arrays, model_meta and memory_requirements instances
     path = os.path.join(output_dir, "model.h")
     with open(path, "w") as f:
         f.write("/* GENERATED FILE — Do not edit manually. */\n")
@@ -372,7 +370,7 @@ def write_model_h(output_dir, info):
             f.write("static const float g_biases[] = { 0.0f };\n\n")
 
         f.write("/* Memory requirements */\n")
-        f.write("const memory_requirements_t g_memory_requirements = {\n")
+        f.write("static const memory_requirements_t g_memory_requirements = {\n")
         f.write(f"    .total_weights_size     = {info['total_weights_bytes']}U,\n")
         f.write(f"    .max_activations_size   = {info['max_activations']}U,\n")
         f.write(f"    .max_intermediate_size  = {info['max_intermediate']}U,\n")
@@ -382,7 +380,7 @@ def write_model_h(output_dir, info):
         in_shape = format_tensor_shape(info["input_dims"])
         out_shape = format_tensor_shape(info["output_dims"])
         num_layers = len(info["layers"])
-        f.write("const model_meta_t g_model_meta = {\n")
+        f.write("static const model_meta_t g_model_meta = {\n")
         f.write("    .layers             = g_layers,\n")
         f.write(f"    .num_layers         = {num_layers}U,\n")
         f.write(f"    .layers_capacity    = {num_layers}U,\n")

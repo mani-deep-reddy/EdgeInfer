@@ -13,14 +13,14 @@ static const float g_weights[] = {    8.486694e-01f,     6.096890e-01f,     -1.9
 static const float g_biases[] = {    0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f,     0.000000e+00f, 
 };
 /* Memory requirements */
-const memory_requirements_t g_memory_requirements = {
+static const memory_requirements_t g_memory_requirements = {
     .total_weights_size     = 304U,
     .max_activations_size   = 32U,
     .max_intermediate_size  = 0U,
 };
 
 /* Model metadata */
-const model_meta_t g_model_meta = {
+static const model_meta_t g_model_meta = {
     .layers             = g_layers,
     .num_layers         = 3U,
     .layers_capacity    = 3U,

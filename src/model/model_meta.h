@@ -44,8 +44,4 @@ static const layer_meta_t g_layers[MODEL_NUM_LAYERS] = {
     {.type = LAYER_DENSE, .input_shape = {.ndim = 2, .dims = {1, 8, 1, 1}}, .output_shape = {.ndim = 2, .dims = {1, 4, 1, 1}}, .weight_offset = 32U, .bias_offset = 8U},
 };
 
-/* Extern declarations */
-extern const model_meta_t g_model_meta;
-extern const memory_requirements_t g_memory_requirements;
-
 #endif /* MODEL_META_H */
