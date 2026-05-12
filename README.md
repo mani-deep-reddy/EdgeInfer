@@ -1,96 +1,126 @@
 # EdgeInfer
 
-[![CI](https://github.com/mani-deep-reddy/EdgeInfer/actions/workflows/ci.yml/badge.svg)](https://github.com/mani-deep-reddy/EdgeInfer/actions/workflows/ci.yml)
+**Embedded inference framework for ARM Cortex-M microcontrollers.**
 
-A lightweight, deterministic inference framework for ARM microcontrollers
-(Cortex-M3, QEMU mps2-an385).
+EdgeInfer is a from-scratch C framework that compiles neural network models into
+deterministic, statically-allocated inference pipelines for ARM Cortex-M3 targets.
+No OS, no heap, no stdio — runs bare-metal on QEMU mps2-an385.
 
-## Features
+## Highlights
 
-- **Zero dynamic allocation** — static memory pool sized at compile time
-- **Pipeline execution** — preprocess → inference → postprocess with error propagation
-- **User extension hooks** — plug in custom pre/post processing via function pointers
-- **Compile-time model** — ONNX models converted to C headers offline
-- **Custom UART output** — no stdio dependency, float printing for embedded targets
-- **QEMU emulation** — run and debug without hardware (mps2-an385)
-- **CI-verified** — GitHub Actions builds and golden-output validation on every push
-
-## Prerequisites
-
-- `arm-none-eabi-gcc` (ARM cross-compiler toolchain)
-- `qemu-system-arm` (for emulation)
-- Python 3 with `onnx` and `numpy` (for model conversion)
+- **Static memory pool** — zero `malloc`/`free`. Pool sized at compile time from model metadata. O(1) bump allocator with overflow detection.
+- **Pipeline architecture** — preprocess → inference → postprocess stages with error propagation and automatic buffer management.
+- **User extension hooks** — custom pre/post processing injected via function pointers. No framework modification needed.
+- **Offline model compilation** — ONNX models converted to C headers via `tools/onnx_to_c.py`. Zero runtime dependencies.
+- **Custom UART engine** — printf-style formatting (`%s`, `%d`, `%u`, floats) with no libc dependency. Bare-metal serial output.
+- **QEMU support** — runs on emulated mps2-an385 (Cortex-M3). GDB debug server available on port 1234.
 
 ## Quick Start
 
 ```bash
-# Build
+# Prerequisites
+sudo apt install gcc-arm-none-eabi qemu-system-arm
+pip install onnx numpy
+
+# Build and run
 make -f scripts/Makefile
-
-# Run in QEMU
 ./qemu/run.sh
+```
 
-# Build + run in one step
-./scripts/demo.sh
+Expected output (inference on a 2-layer MLP: 4→8→4 with ReLU):
+
+```
+11.946224
+0.678968
+-3.791145
+1.372610
 ```
 
 ## Project Structure
 
 ```
-src/                     Core framework
-├── common/              Types, logger, utilities
+src/                     Core framework source
+├── common/              Types (tensor_t, tensor_shape_t), logger, utilities
 ├── pipeline/            Pipeline orchestration (init + run)
-├── stages/              Preprocess, inference, postprocess
-├── memory/              Static pool + buffer layout
-├── hooks/               Hook interface + registry
-├── model/               Generated model data (model.h, model_meta.h)
-└── main.c               Application entry point
+├── stages/              Per-stage logic: preprocess, inference engine, postprocess
+├── memory/              Static memory pool + buffer layout manager
+├── hooks/               Hook interface typedefs + registry
+├── model/               Generated model headers (weights, topology, macros)
+└── main.c               Entry point — init, register hooks, run pipeline
 
-config/                  Compile-time configuration
-platform/arm/            ARM-specific code (startup, linker, UART)
-user_extensions/         User-provided hooks and config
-├── preprocess/          Input preparation hook
-├── postprocess/         Output formatting hook
-└── config/              Model-specific parameters
-
-tools/                   Offline utilities (ONNX → C converter)
-qemu/                    Emulation scripts (run + debug)
-scripts/                 Build entry points + verification
-examples/                Reference implementations
-docs/                    Design and integration documentation
+config/                  Compile-time configuration (TARGET_RAM_SIZE, logging)
+platform/arm/            ARM-specific: startup.s, linker.ld, UART driver
+user_extensions/         User-provided preprocessing, postprocessing, config
+tools/                   onnx_to_c.py — ONNX → C header converter
+qemu/                    QEMU run/debug scripts
+scripts/                 Build and verification entry points
+examples/simple_mlp/     Reference MLP model with golden output
+docs/                    Architecture, memory model, integration guide
 ```
 
-## Model Conversion
+## Architecture
 
-Convert an ONNX model to C headers:
+```
+                      ┌──────────────┐
+                      │  model.onnx  │
+                      └──────┬───────┘
+                             │ python3 tools/onnx_to_c.py
+                             ▼
+                      ┌──────────────┐     ┌──────────────────┐
+                      │  model.h     │     │  model_meta.h    │
+                      │  (weights,   │     │  (layer topology,│
+                      │   biases,    │     │   sizing macros) │
+                      │   metadata)  │     └──────────────────┘
+                      └──────────────┘
+                             │
+                             ▼  arm-none-eabi-gcc
+                      ┌──────────────┐
+                      │  build/      │
+                      │  app.elf     │
+                      └──────┬───────┘
+                             │ qemu-system-arm (or real hardware)
+                             ▼
+                      ┌──────────────┐
+                      │  Cortex-M3   │
+                      │  Pipeline    │
+                      │  pre→inf→post│
+                      └──────────────┘
+```
+
+## Adding a New Model
 
 ```bash
-pip install onnx numpy
+# 1. Convert ONNX to C headers
 python3 tools/onnx_to_c.py your_model.onnx
+
+# 2. Update user config dimensions
+#    (edit user_extensions/config/user_config.h)
+
+# 3. Rebuild
+make -f scripts/Makefile
 ```
 
-This generates `src/model/model.h` (weights, biases, metadata) and
-`src/model/model_meta.h` (layer topology, sizing macros).
+## Customizing Pre/Post Processing
 
-## Extending EdgeInfer
+```c
+// user_extensions/preprocess/user_preprocess.c
+static edgeinfer_status_t my_preprocess(
+    const tensor_t *raw_input, tensor_t *prepared_input)
+{
+    // Normalize, resize, reorder channels...
+    return EDGEINFER_OK;
+}
+```
 
-Replace files in `user_extensions/` to customize:
+Register hooks in `user_register_hooks()`. Fall through to passthrough if unregistered.
 
-| File | Purpose |
-|------|---------|
-| `preprocess/user_preprocess.c` | Input preparation (normalize, resize, etc.) |
-| `postprocess/user_postprocess.c` | Output formatting (softmax, argmax, etc.) |
-| `config/user_config.h` | Model-specific parameters |
-
-Hooks are registered from `user_register_hooks()` in `user_preprocess.c`.
-
-## Debugging with QEMU
+## Debugging
 
 ```bash
-# Start QEMU in GDB server mode (port 1234)
+# Terminal 1: start QEMU with GDB server
 ./qemu/debug.sh
 
-# In another terminal, connect GDB
+# Terminal 2: connect GDB
 arm-none-eabi-gdb build/app.elf
 (gdb) target remote :1234
 (gdb) break main
@@ -100,26 +130,21 @@ arm-none-eabi-gdb build/app.elf
 ## Verification
 
 ```bash
-# Build, run in QEMU, compare output against golden reference
 bash scripts/verify_qemu.sh
 ```
 
-This script:
-1. Clean builds the project
-2. Runs in QEMU with a 5-second timeout
-3. Extracts float output from serial
-4. Diffs against `examples/simple_mlp/expected_output.txt`
+Automated CI-style check: clean build → QEMU run → float output extraction → diff against golden reference.
 
-## Supported Layer Types
+## Supported Layers
 
 | Layer    | Status      |
 |----------|-------------|
 | Dense    | Implemented |
 | ReLU     | Implemented |
-| Conv2D   | Reserved    |
-| MaxPool  | Reserved    |
-| Softmax  | Reserved    |
+| Conv2D   | Planned     |
+| MaxPool  | Planned     |
+| Softmax  | Planned     |
 
 ## License
 
-See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
